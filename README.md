@@ -1,4 +1,4 @@
-# Text Neck Routine Guide
+# Text Neck Routine Guide（JP）
 
 **目的：ストレートネック改善をサポート**する、スマホ向けの軽量Webガイドです。  
 音声ガイド／サイレント切替、タイマー、各ステップ間インターバル（3秒）に対応。
