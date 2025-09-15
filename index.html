@@ -5,20 +5,29 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <!-- iOSでホーム追加 → バーなし（Webアプリ風）にする -->
+<link rel="apple-touch-icon" href="icon-180.png" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="首ストレッチ">
 
 <!-- Android(Chrome)用 仮対応 -->
-<link rel="manifest" href="manifest.webmanifest">
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#F46B75" />
 
-<!-- 検索に載せたくない場合（任意） -->
-<meta name="robots" content="noindex,nofollow" />
+<!-- 検索避け -->
+<meta name="robots" content="noindex,nofollow,noarchive,nosnippet" />
+<meta name="googlebot" content="noindex,nofollow,noarchive,nosnippet" />
+<meta name="bingbot" content="noindex,nofollow" />
+<meta name="CCBot" content="noindex,nofollow" />           <!-- Common Crawl -->
+<meta name="PerplexityBot" content="noindex,nofollow" />    <!-- Perplexity -->
+<meta name="GPTBot" content="noindex,nofollow" />           <!-- OpenAI -->
+<meta name="ClaudeBot" content="noindex,nofollow" />        <!-- Anthropic -->
 
-<title>首とフェイスライン ルーティン（ガイド付き）</title>
+<!--タブ名 -->
+<title>首ストレッチ</title>
 
-<!-- ホーム画面アイコン（同じフォルダに置く）-->
-<link rel="apple-touch-icon" href="icon-180.png" />
+<!--PC向けアイコン-->
+<link rel="icon" href="icon-192.png" type="image/png" />
 
 
 <style>
@@ -40,7 +49,7 @@
 </head>
 <body>
 
-<h1>首とフェイスライン ルーティン（ガイド付き）</h1>
+<h1>首のストレッチ ルーティン（ガイド付き）</h1>
 <div class="box">
   <div class="row">
     <button id="startBtn">開始</button>
@@ -54,7 +63,7 @@
     <label><input type="radio" name="mode" value="silent"> サイレント</label>
     <span class="badge">各パート間の猶予：3秒</span>
   </div>
-  <div class="muted">※ 音声ガイドはSafariの「サウンド」許可が必要。最初に「開始」を押すと音が出ます。</div>
+  <div class="muted">※ 音声ガイドはブラウザの「サウンド」許可が必要。最初に「開始」を押すと音が出ます。</div>
 </div>
 
 <div class="box">
@@ -204,4 +213,5 @@ updateUI();
 </script>
 </body>
 </html>
+
 
