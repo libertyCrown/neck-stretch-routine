@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<!-- iOSでホーム追加 → バーなし（Webアプリ風）にする -->
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+<!-- 検索に載せたくない場合（任意） -->
+<meta name="robots" content="noindex,nofollow" />
+
+<title>首とフェイスライン ルーティン（ガイド付き）</title>
+
+<!-- ホーム画面アイコン（同じフォルダに置く）-->
+<link rel="apple-touch-icon" href="icon-180.png" />
+
+
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans JP", sans-serif; margin: 16px; line-height: 1.6; }
+  h1 { font-size: 1.3rem; margin-bottom: 8px; }
+  .box { border: 1px solid #ddd; border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+  .row { display:flex; gap:8px; flex-wrap: wrap; align-items: center; }
+  button { padding: 10px 14px; border-radius: 10px; border: 1px solid #ccc; background: #f7f7f7; }
+  button:disabled { opacity: 0.6; }
+  .badge { display:inline-block; padding: 2px 8px; border-radius: 999px; border:1px solid #ddd; font-size: 0.85rem;}
+  .progress { height: 12px; background: #eee; border-radius: 999px; overflow: hidden; }
+  .bar { height: 100%; width:0%; background: #4CAF50; transition: width 0.2s linear; }
+  .muted { color: #666; font-size: 0.95rem; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+  .sep { height: 8px; }
+  .step-list { font-size: 0.95rem; }
+  .pill { display:inline-block; margin: 2px 6px 2px 0; padding: 4px 8px; border-radius: 999px; border:1px solid #ddd; }
+</style>
+</head>
+<body>
+
+<h1>首とフェイスライン ルーティン（ガイド付き）</h1>
+<div class="box">
+  <div class="row">
+    <button id="startBtn">開始</button>
+    <button id="pauseBtn" disabled>一時停止</button>
+    <button id="resetBtn" disabled>リセット</button>
+    <button id="prevBtn" disabled>戻る</button>
+    <button id="nextBtn" disabled>次へ</button>
+  </div>
+  <div class="row" style="margin-top:6px;">
+    <label><input type="radio" name="mode" value="voice" checked> 音声ガイド</label>
+    <label><input type="radio" name="mode" value="silent"> サイレント</label>
+    <span class="badge">各パート間の猶予：3秒</span>
+  </div>
+  <div class="muted">※ 音声ガイドはSafariの「サウンド」許可が必要。最初に「開始」を押すと音が出ます。</div>
+</div>
+
+<div class="box">
+  <div class="row">
+    <div class="badge" id="progressBadge">0 / 0 ステップ</div>
+    <div class="badge" id="repBadge">回数: - / -</div>
+  </div>
+  <div style="margin-top:6px;">
+    <div class="muted">いまのステップ</div>
+    <div style="font-size:1.2rem; font-weight:600;" id="stepName">-</div>
+    <div id="stepCue">-</div>
+  </div>
+  <div class="sep"></div>
+  <div class="row">
+    <div class="badge">残り <span class="mono" id="countdown">--</span> 秒</div>
+    <div class="badge">状態: <span id="state">待機中</span></div>
+  </div>
+  <div class="progress" style="margin-top:8px;"><div class="bar" id="bar"></div></div>
+</div>
+
+<div class="box step-list">
+  <div class="muted">ステップ一覧</div>
+  <div id="list"></div>
+</div>
+
+<script>
+const steps = [
+  {name:"姿勢リセット", reps:1, hold:30, cue:"壁に背・お尻・かかと・後頭部をつけ、軽くあごを引いて自然呼吸"},
+  {name:"チンイン", reps:10, hold:5, cue:"椅子か壁に背中。あごを軽く引き、後頭部を後ろにスライド"},
+  {name:"首ストレッチ（左）", reps:1, hold:20, cue:"首を左に倒し、右肩は下げて脱力"},
+  {name:"首ストレッチ（右）", reps:1, hold:20, cue:"首を右に倒し、左肩は下げて脱力"},
+  {name:"首ストレッチ（前）", reps:1, hold:20, cue:"天井を見て首の前面を心地よく伸ばす"},
+  {name:"天井キス", reps:10, hold:3, cue:"天井を見上げ、唇をすぼめて前に突き出す"},
+  {name:"舌押し", reps:10, hold:5, cue:"舌を上あごに押し付ける"}
+];
+const restBetweenSteps = 3;
+
+const startBtn = document.getElementById('startBtn');
+const pauseBtn = document.getElementById('pauseBtn');
+const resetBtn = document.getElementById('resetBtn');
+const nextBtn = document.getElementById('nextBtn');
+const prevBtn = document.getElementById('prevBtn');
+const progressBadge = document.getElementById('progressBadge');
+const repBadge = document.getElementById('repBadge');
+const stepName = document.getElementById('stepName');
+const stepCue = document.getElementById('stepCue');
+const countdownEl = document.getElementById('countdown');
+const bar = document.getElementById('bar');
+const stateEl = document.getElementById('state');
+const listEl = document.getElementById('list');
+
+function speak(txt){
+  const mode = document.querySelector('input[name="mode"]:checked').value;
+  if(mode !== 'voice') return;
+  try {
+    const u = new SpeechSynthesisUtterance(txt);
+    u.lang = 'ja-JP';
+    u.rate = 1.0;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(u);
+  } catch(e){}
+}
+
+function renderList() {
+  listEl.innerHTML = steps.map((s,i)=>{
+    return `<span class="pill">${i+1}. ${s.name}（${s.hold}秒 × ${s.reps}回）</span>`;
+  }).join('');
+}
+renderList();
+
+let iStep = 0, iRep = 0, timeLeft = 0, totalForBar = 1;
+let running = false, paused = false, inRest = false, timer = null;
+
+function updateUI() {
+  progressBadge.textContent = `${Math.min(iStep+1, steps.length)} / ${steps.length} ステップ`;
+  if(iStep < steps.length){
+    const s = steps[iStep];
+    stepName.textContent = (inRest ? '休憩' : s.name);
+    stepCue.textContent = (inRest ? '次のステップまでリラックス' : s.cue);
+    repBadge.textContent = `回数: ${inRest ? '-' : (iRep+1)} / ${inRest ? '-' : s.reps}`;
+  } else {
+    stepName.textContent = '完了！';
+    stepCue.textContent = 'お疲れさまでした';
+    repBadge.textContent = '回数: - / -';
+  }
+  countdownEl.textContent = `${timeLeft}`;
+  const pct = Math.max(0, Math.min(1, 1 - timeLeft / totalForBar));
+  bar.style.width = (pct*100).toFixed(1) + '%';
+  stateEl.textContent = running ? (paused ? '一時停止中' : (inRest ? '休憩中' : '進行中')) : '待機中';
+  startBtn.disabled = running && !paused;
+  pauseBtn.disabled = !running;
+  resetBtn.disabled = !running && iStep===0 && iRep===0;
+  nextBtn.disabled = !running;
+  prevBtn.disabled = !running;
+}
+
+function setStep(idx){
+  iStep = idx; iRep = 0; inRest = false;
+  if(iStep >= steps.length){
+    running = false; paused = false; timeLeft = 0; totalForBar = 1;
+    speak('ルーティン完了です。おつかれさまでした。');
+    clearInterval(timer); updateUI(); return;
+  }
+  const s = steps[iStep];
+  timeLeft = s.hold; totalForBar = s.hold;
+  speak(`【${s.name}】 ${s.cue}。${s.hold}秒、${s.reps}回。`);
+  updateUI();
+}
+
+function tick(){
+  if(!running || paused) return;
+  if(timeLeft > 0){ timeLeft -= 1; updateUI(); return; }
+  if(inRest){ setStep(iStep+1); return; }
+  const s = steps[iStep];
+  if(iRep + 1 < s.reps){
+    iRep += 1; timeLeft = s.hold; totalForBar = s.hold; speak(`${iRep+1}回目`); updateUI();
+  } else {
+    inRest = true; timeLeft = restBetweenSteps; totalForBar = restBetweenSteps; speak('休憩、3秒。'); updateUI();
+  }
+}
+
+startBtn.onclick = ()=>{
+  if(!running){
+    running = true; paused = false;
+    if(iStep===0 && iRep===0 && timeLeft===0){ setStep(0); }
+    if(timer) clearInterval(timer); timer = setInterval(tick, 1000);
+  } else if(paused){ paused = false; }
+  updateUI();
+};
+
+pauseBtn.onclick = ()=>{ if(!running) return; paused = !paused; updateUI(); };
+resetBtn.onclick = ()=>{ running=false; paused=false; clearInterval(timer);
+  iStep=0; iRep=0; timeLeft=0; totalForBar=1; inRest=false; updateUI(); };
+nextBtn.onclick = ()=>{
+  if(!running) return;
+  if(inRest){ setStep(iStep+1); }
+  else {
+    const s = steps[iStep];
+    if(iRep + 1 < s.reps){ iRep = s.reps - 1; timeLeft = 1; totalForBar = 1; }
+    else { inRest = true; timeLeft = restBetweenSteps; totalForBar = restBetweenSteps; speak('休憩、3秒。'); }
+    updateUI();
+  }
+};
+prevBtn.onclick = ()=>{ if(!running) return; setStep(Math.max(0, iStep - 1)); };
+
+updateUI();
+</script>
+</body>
+</html>
