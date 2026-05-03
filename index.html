@@ -37,7 +37,9 @@
   .row { display:flex; gap:8px; flex-wrap: wrap; align-items: center; }
   button { padding: 10px 14px; border-radius: 10px; border: 1px solid #ccc; background: #f7f7f7; }
   button:disabled { opacity: 0.6; }
+  [hidden] { display: none !important; }
   .badge { display:inline-block; padding: 2px 8px; border-radius: 999px; border:1px solid #ddd; font-size: 0.85rem;}
+  .badge.warn { border-color: #f0b35a; background: #fff7e8; color: #7a4a00; }
   .progress { height: 12px; background: #eee; border-radius: 999px; overflow: hidden; }
   .bar { height: 100%; width:0%; background: #4CAF50; transition: width 0.2s linear; }
   .muted { color: #666; font-size: 0.95rem; }
@@ -62,6 +64,7 @@
     <label><input type="radio" name="mode" value="voice" checked> 音声ガイド</label>
     <label><input type="radio" name="mode" value="silent"> サイレント</label>
     <span class="badge">各パート間の猶予：3秒</span>
+    <span class="badge warn" id="voiceStatus" hidden>音声ガイド非対応</span>
   </div>
   <div class="muted">※ 音声ガイドはブラウザの「サウンド」許可が必要。最初に「開始」を押すと音が出ます。</div>
 </div>
@@ -114,10 +117,13 @@ const countdownEl = document.getElementById('countdown');
 const bar = document.getElementById('bar');
 const stateEl = document.getElementById('state');
 const listEl = document.getElementById('list');
+const voiceStatus = document.getElementById('voiceStatus');
+const canSpeak = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
+voiceStatus.hidden = canSpeak;
 
 function speak(txt){
   const mode = document.querySelector('input[name="mode"]:checked').value;
-  if(mode !== 'voice') return;
+  if(mode !== 'voice' || !canSpeak) return;
   try {
     const u = new SpeechSynthesisUtterance(txt);
     u.lang = 'ja-JP';
@@ -125,6 +131,11 @@ function speak(txt){
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(u);
   } catch(e){}
+}
+
+function isVoicePlaying(){
+  const mode = document.querySelector('input[name="mode"]:checked').value;
+  return mode === 'voice' && canSpeak && window.speechSynthesis.speaking;
 }
 
 function renderList() {
@@ -138,7 +149,8 @@ let iStep = 0, iRep = 0, timeLeft = 0, totalForBar = 1;
 let running = false, paused = false, inRest = false, timer = null;
 
 function updateUI() {
-  progressBadge.textContent = `${Math.min(iStep+1, steps.length)} / ${steps.length} ステップ`;
+  const visibleStep = iStep >= steps.length ? steps.length : iStep + 1;
+  progressBadge.textContent = `${visibleStep} / ${steps.length} ステップ`;
   if(iStep < steps.length){
     const s = steps[iStep];
     stepName.textContent = (inRest ? '休憩' : s.name);
@@ -160,6 +172,14 @@ function updateUI() {
   prevBtn.disabled = !running;
 }
 
+function startRest(){
+  inRest = true;
+  timeLeft = restBetweenSteps;
+  totalForBar = restBetweenSteps;
+  speak(`休憩、${restBetweenSteps}秒。`);
+  updateUI();
+}
+
 function setStep(idx){
   iStep = idx; iRep = 0; inRest = false;
   if(iStep >= steps.length){
@@ -175,18 +195,22 @@ function setStep(idx){
 
 function tick(){
   if(!running || paused) return;
+  if(isVoicePlaying()) return;
   if(timeLeft > 0){ timeLeft -= 1; updateUI(); return; }
   if(inRest){ setStep(iStep+1); return; }
   const s = steps[iStep];
   if(iRep + 1 < s.reps){
     iRep += 1; timeLeft = s.hold; totalForBar = s.hold; speak(`${iRep+1}回目`); updateUI();
   } else {
-    inRest = true; timeLeft = restBetweenSteps; totalForBar = restBetweenSteps; speak('休憩、3秒。'); updateUI();
+    startRest();
   }
 }
 
 startBtn.onclick = ()=>{
   if(!running){
+    if(iStep >= steps.length){
+      iStep = 0; iRep = 0; timeLeft = 0; totalForBar = 1; inRest = false;
+    }
     running = true; paused = false;
     if(iStep===0 && iRep===0 && timeLeft===0){ setStep(0); }
     if(timer) clearInterval(timer); timer = setInterval(tick, 1000);
@@ -201,10 +225,7 @@ nextBtn.onclick = ()=>{
   if(!running) return;
   if(inRest){ setStep(iStep+1); }
   else {
-    const s = steps[iStep];
-    if(iRep + 1 < s.reps){ iRep = s.reps - 1; timeLeft = 1; totalForBar = 1; }
-    else { inRest = true; timeLeft = restBetweenSteps; totalForBar = restBetweenSteps; speak('休憩、3秒。'); }
-    updateUI();
+    startRest();
   }
 };
 prevBtn.onclick = ()=>{ if(!running) return; setStep(Math.max(0, iStep - 1)); };
